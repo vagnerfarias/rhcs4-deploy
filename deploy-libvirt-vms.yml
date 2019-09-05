@@ -1,0 +1,102 @@
+---
+- name: create VMs
+  hosts: localhost
+  connection: local
+  become: true
+  vars:
+    admin_user_sshkey: "{{ lookup('file', admin_user_sshkey_file) }}"
+  vars_files:
+    - config-vars.yml
+
+
+  tasks:
+    - name: create libvirt network for public traffic - {{ public_net }}
+      virt_net:
+        command: define
+        name: "{{ public_net }}"
+        xml: '{{ lookup("template", "public-network.xml.j2") }}'
+  
+    - name: create libvirt network for cluster traffic - {{ cluster_net }}
+      virt_net:
+        command: define
+        name: "{{ cluster_net }}"
+        xml: '{{ lookup("template", "cluster-network.xml.j2") }}'
+
+    - name: Start public network {{ public_net }}
+      virt_net:
+        name: "{{ public_net }}"
+        state: active
+  
+    - name: Start cluster network {{ cluster_net }}
+      virt_net:
+        name: "{{ cluster_net }}"
+        state: active
+
+    - name: Config network {{ public_net }} to start on boot
+      virt_net:
+        name: "{{ public_net }}"
+        autostart: yes
+
+    - name: Config network {{ cluster_net }} to start on boot
+      virt_net:
+        name: "{{ cluster_net }}"
+        autostart: yes
+
+    - name: Generate guest kickstart file
+      template:
+        src: "rhel8-ks.cfg.j2"
+        dest: "tmp/{{ item.key }}-rhel8-ks.cfg"
+      with_dict: "{{ guests }}"
+
+    - name: get VM disks
+      command: "ls {{ vm_location }}"
+      register: disks
+      changed_when: "disks.rc != 0"
+
+    - name: get list of VMs
+      virt:
+        command: "list_vms"
+      register: vms 
+
+    - name: create vm
+      command: >
+              {{ lookup("template", "virt-install.j2") }}
+      when: item.key not in vms.list_vms
+      with_dict: "{{ guests }}"
+      async: 1800
+      poll: 0
+      register: create_vm
+
+    - debug:
+        var: create_vm.results
+
+    - name: check vm creation
+      async_status:
+        jid: "{{ create_vm_item.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 100
+      delay: 60
+      loop: "{{ create_vm.results }}"
+      loop_control:
+        loop_var: "create_vm_item"
+      when: create_vm_item.changed
+
+      # - name: Waiting for VMs to be running
+      #   wait_for: 
+      #     host: 192.168.50.10
+      #     port: 22
+      #     delay: 240
+      #     timeout: 600
+      #     sleep: 30
+      #     state: started
+      #     msg: "VM didn't start properly"
+
+    - name: start vm
+      virt:
+        name: "{{ item.key }}"
+        state: running
+      with_dict: "{{ guests }}"
+      tags: vm_start
+
+      

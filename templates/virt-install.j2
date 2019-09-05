@@ -1,0 +1,14 @@
+virt-install --name {{ item.key }}
+             --memory {{ item.value.mem }} --vcpus {{ item.value.cpus }}
+             --disk path={{ vm_location }}/{{ item.key }}.{{ item.value.file_type }},size={{ os_disk_size }}
+             {% if item.value.data_disk_size is defined %}
+             --disk path={{ vm_location }}/{{ item.key }}-data.{{ item.value.file_type }},size={{ item.value.data_disk_size }}
+             {% endif %}
+             --noautoconsole --os-variant {{ item.value.os_type }}
+             --network network={{ public_net }}
+             {% if item.value.cluster_ipaddr is defined %}
+             --network network={{ cluster_net }}
+             {% endif %}
+             --location /home/vfarias/isos/rhel-8.0-x86_64-dvd.iso --initrd-inject ./tmp/{{ item.key }}-rhel8-ks.cfg 
+             --extra-args="ks=file:/{{ item.key }}-rhel8-ks.cfg console=tty0 console=ttyS0,115200n8"
+             --wait 20

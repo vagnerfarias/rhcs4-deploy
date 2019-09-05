@@ -1,0 +1,90 @@
+---
+rhcs_baseurl: ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/ 
+rhcs_gpgkey: ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/Tools/x86_64/os/RPM-GPG-KEY-redhat-release
+repository: customer_portal
+force_repos: false
+update_packages: false
+
+vm_location: "/home/VirtualMachines"
+root_pass: "r3dh4t1!"
+
+
+all_yml: container-all.yml
+site_yml: container-site.yml
+#all_yml: baremetal-all.yml
+#site_yml: baremetal-site.yml
+
+optional_group_vars:
+  - mgrs.yml
+
+container_deployment: true
+
+
+#size in GB
+os_disk_size: "15"
+
+admin_user: admin
+admin_user_pass: "r3dh4t1!"
+admin_user_sshkey_file: "/home/vfarias/.ssh/id_rsa.pub"
+admin_user_sshprivkey_file: "/home/vfarias/.ssh/id_rsa"
+#ssh_host_pub_key_file: /etc/ssh/ssh_host_ecdsa_key.pub
+
+public_net: public
+public_bridge_name: virbr-public
+public_bridge_ip_addr: 192.168.50.1
+public_netmask: 255.255.255.0
+public_gateway: 192.168.50.1
+public_dns: 192.168.50.1
+
+cluster_net: cluster
+cluster_bridge_name: virbr-cluster
+cluster_bridge_ip_addr: 192.168.90.1
+cluster_netmask: 255.255.255.0
+cluster_dns: 192.168.90.1
+
+domain_name: example.com
+
+guests:
+  ceph-mon01:
+    mem: 4096
+    cpus: 2
+    os_type: rhel8.0
+    file_type: qcow2
+    public_ipaddr: 192.168.50.10
+    cluster_ipaddr: 192.168.90.10
+    role: ceph-mon
+  ceph-osd01:
+    mem: 4096
+    cpus: 2
+    os_type: rhel8.0
+    file_type: qcow2
+    public_ipaddr: 192.168.50.11
+    cluster_ipaddr: 192.168.90.11
+    data_disk_size: 25
+    role: ceph-osd
+  ceph-osd02:
+    mem: 4096
+    cpus: 2
+    os_type: rhel8.0
+    file_type: qcow2
+    public_ipaddr: 192.168.50.12
+    cluster_ipaddr: 192.168.90.12
+    data_disk_size: 25
+    role: ceph-osd
+  ceph-osd03:
+    mem: 4096
+    cpus: 2
+    os_type: rhel8.0
+    file_type: qcow2
+    public_ipaddr: 192.168.50.13
+    cluster_ipaddr: 192.168.90.13
+    data_disk_size: 25
+    role: ceph-osd
+  ceph-ansible:
+    mem: 1024
+    cpus: 1
+    os_type: rhel8.0
+    file_type: qcow2
+    public_ipaddr: 192.168.50.5
+    role: ansible
+    

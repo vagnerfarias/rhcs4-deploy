@@ -1,0 +1,35 @@
+---
+- name: Prepare all nodes
+  hosts: all
+  become: yes
+  remote_user: "{{ admin_user }}"
+  vars:
+    ansible_python_interpreter: "/usr/libexec/platform-python"
+  vars_files:
+    - config-vars.yml
+
+  tasks:
+    - name: Update OS
+      import_role:
+        name: base_os
+        tasks_from: prepare.yml
+
+    - name: Install ceph-ansible
+      import_role:
+        name: ceph
+        tasks_from: prepare-ceph-nodes.yml
+
+- name: Configure ceph-ansible node
+  hosts: ansible
+  become: yes
+  remote_user: "{{ admin_user }}"
+  vars:
+    ansible_python_interpreter: "/usr/libexec/platform-python"
+  vars_files:
+    - config-vars.yml
+
+  tasks:
+    - name: Configure ceph-ansible
+      import_role:
+        name: ceph
+        tasks_from: configure-ceph-ansible.yml

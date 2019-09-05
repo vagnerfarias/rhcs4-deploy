@@ -1,0 +1,5 @@
+[rhceph4-osd]
+name=Red Hat Ceph 4.0 OSD for Red Hat Enterprise Linux 8
+baseurl=ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/OSD/x86_64/os/
+gpgkey=ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/OSD/x86_64/os/RPM-GPG-KEY-redhat-release
+

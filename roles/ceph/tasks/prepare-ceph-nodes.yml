@@ -1,0 +1,89 @@
+---
+- block:
+  - name: Enable repository - subscription manager
+    rhsm_repository: 
+      name: ansible-2.8-for-rhel-8-x86_64-rpms
+    #when: repository == 'customer_portal' and "'ansible' in group_names"
+    when: "'ansible' in group_names and repository == 'customer_portal'"
+    tags:
+      - repos
+
+  #- name: Enable repository - yum repo
+  #  yum_repository: 
+  #    name: ansible-2.8-for-rhel-8-x86_64-rpms
+  #    description: ansible-2.8-for-rhel-8-x86_64-rpms
+  #    baseurl: "{{ baseurl }}/ansible-2.8-for-rhel-8-x86_64-rpms"
+  #    gpgcheck: no
+  #  when: repository == "yumrepo" and "'ansible' in group_names"
+  #  tags:
+  #    - repos
+
+  - name: Enable RHCS repositories - Ansible node
+    yum_repository: 
+      name: "rhceph4-tools"
+      description: "rhceph4-tools"
+      baseurl: "{{ item }}"
+      gpgcheck: yes
+      gpgkey: "{{ rhcs_gpgkey }}"
+    when: "'ansible' in group_names" 
+    loop: 
+      - ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/Tools/x86_64/os/
+    tags:
+      - repos
+
+  - name: Enable RHCS repositories - MON nodes
+    yum_repository:
+      name: "{{ item.name }}"
+      description: "{{ item.name }}"
+      baseurl: "{{ item.repo_url }}"
+      gpgcheck: yes
+      gpgkey: "{{ rhcs_gpgkey }}"
+    when: "'mons' in group_names"
+    loop:
+      - { name: 'rhceph4-tools', repo_url: 'ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/Tools/x86_64/os/' }
+      - { name: 'rhceph4-mon', repo_url: 'ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/MON/x86_64/os/' }
+    tags:
+      - repos
+
+  - name: Enable RHCS repositories - OSD nodes
+    yum_repository:
+      name: "{{ item.name }}"
+      description: "{{ item.name }}"
+      baseurl: "{{ item.repo_url }}"
+      gpgcheck: yes
+      gpgkey: "{{ rhcs_gpgkey }}"
+    when: "'osds' in group_names"
+    loop:
+      - { name: 'rhceph4-tools', repo_url: 'ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/Tools/x86_64/os/' }
+      - { name: 'rhceph4-osd', repo_url: 'ftp://partners.redhat.com/d8556772a349f93d26ffa995bbc9008e/rhel-8/OSD/x86_64/os/' }
+    tags:
+      - repos
+
+  - name: Copy hosts file to nodes
+    copy:
+      src: etc_hosts
+      dest: /etc/hosts
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: install required packages
+    yum:
+      name: ceph-ansible
+    when: "'ansible' in group_names"
+    tags:
+      - package_install
+
+  - name: Install podman
+    yum:
+      name: podman
+    when: "'ceph_all' in group_names and container_deployment"
+
+  - name: copy registries.conf
+    copy:
+      src: registries.conf
+      dest: /etc/containers
+      owner: root
+      group: root
+      mode: 0644
+    when: "'ceph_all' in group_names and container_deployment"

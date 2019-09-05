@@ -1,0 +1,177 @@
+---
+- block:
+  - name: Create symlink to group_vars
+    file:
+      src: /usr/share/ceph-ansible/group_vars
+      dest: /etc/ansible/group_vars
+      owner: root
+      group: root
+      state: link
+
+  - name: Copy OSDs configuration file
+    copy:
+      src: osds.yml
+      dest: /usr/share/ceph-ansible/group_vars
+      owner: root
+      group: root
+      mode: u=rw,g=r,o=r
+
+  - name: Copy configuration files
+    copy:
+      src: "{{ all_yml }}"
+      dest: /usr/share/ceph-ansible/group_vars/all.yml
+      owner: root
+      group: root
+      mode: u=rw,g=r,o=r
+
+  - name: Copy site.yml
+    copy:
+      src: "{{ site_yml }}"
+      dest: /usr/share/ceph-ansible/site.yml
+      owner: root
+      group: root
+      mode: u=rw,g=r,o=r
+
+  - name: Copy optional group_vars
+    copy:
+      src: "{{ item }}"
+      dest: "/usr/share/ceph-ansible/group_vars/{{ item }}"
+      owner: root
+      group: root
+      mode: 0644
+    with_items:
+      - "{{ optional_group_vars }}"
+
+  - name: Prepare log directory
+    file:
+      path: /var/log/ansible
+      owner: "{{ admin_user }}"
+      group: "{{ admin_user }}"
+      state: directory
+      mode: 0755
+
+  - name: Create ceph-ansible-keys
+    file:
+      path: "/home/{{ admin_user }}"
+      owner: "{{ admin_user }}"
+      group: "{{ admin_user }}"
+      mode: 0755 
+
+  - name: ceph-ansible config file
+    copy:
+      src: ansible.cfg
+      dest: /usr/share/ceph-ansible/ansible.cfg
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: global ansible.cfg
+    copy:
+      src: global_ansible.cfg
+      dest: "/etc/ansible/ansible.cfg"
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Ensure "{{ admin_user }}" .ssh directory exists
+    file:
+      path: "/home/{{ admin_user }}/.ssh"
+      state: directory
+      owner: "{{ admin_user }}"
+      group: "{{ admin_user }}"
+      mode: 0700
+    tags: sshkey
+  
+  #- name: Generate SSH key to upload to servers
+  #  command: ssh-keygen -t rsa -N "" -f /home/{{ admin_user }}/.ssh/id_rsa creates=/home/{{ admin_user }}/.ssh/id_rsa
+  #  become: false
+  #  register: sshkey
+
+  - name: Copy {{ admin_user }} private ssh key to ansible node
+    copy:
+      src: "{{ admin_user_sshprivkey_file }}"
+      dest: "/home/{{ admin_user }}/.ssh/id_rsa"
+      owner: "{{ admin_user }}"
+      group: "{{ admin_user }}"
+      mode: 0600
+    tags: sshkey
+
+  - name: Fetch ssh host keys
+    lineinfile:
+      path: /home/{{ admin_user }}/.ssh/known_hosts
+      create: yes
+      state: present
+      line: "{{ lookup('pipe', 'ssh-keyscan -t ecdsa-sha2-nistp256 ' + item) }}"
+    become: false
+    # can't understand why loop isn't working. using with_items
+    #loop:
+    #  - "{{ groups['ceph_all']|flatten(levels=1) }}"
+    with_items:
+      - "{{ groups['ceph_all'] }}"
+    tags: hostkeys
+  
+  - name: Copy ansible inventory
+    copy:
+      src: hosts
+      dest: /etc/ansible/hosts
+      owner: root
+      group: root
+      mode: 0644
+    tags: inventory
+
+- block:
+  - name: import registry login credentials
+    include_vars: registry_credentials.yml
+
+  - name: Install podman
+    yum:
+      name: podman
+
+  - name: Log into Red Hat Registry
+    command: "podman login registry.redhat.io -u {{ registry_login }} -p {{ registry_password }}"
+
+  - name: Download Ceph container
+    command: podman pull registry.redhat.io/rhceph-beta/rhceph-4-rhel8:latest
+
+  - name: Download Ceph container
+    command: podman tag registry.redhat.io/rhceph-beta/rhceph-4-rhel8 ceph-ansible.example.com:5000/rhceph-4-rhel8
+
+  - name: Check if registry already exists
+    command: podman ps -f name=registry --all
+    register: podman_ps
+
+  #- name: Start private registry
+  #  command: podman run -d -p 5000:5000  --name registry registry:latest
+    #when: podman_ps.stdout == ""
+
+  #- name: Download docker registry container
+  #  command: podman pull registry:latest
+
+  - name: Open registry port on firewall
+    firewalld:
+      port: 5000/tcp
+      permanent: yes
+      state: enabled
+      immediate: yes
+
+  - name: copy registries.conf
+    copy:
+      src: registries.conf
+      dest: /etc/containers
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: push Ceph image to private registry
+    command: podman push ceph-ansible.example.com:5000/rhceph-4-rhel8  
+
+  when: container_deployment
+
+
+# TODO:
+# install podman on ansible node
+# podman pull registry.redhat.io/rhceph-beta/rhceph-4-rhel8:latest
+# podman pull registry:latest
+# firewall-cmd --add-port 5000/tcp --permanent
+# firewall-cmd --add-port 5000/tcp
+#

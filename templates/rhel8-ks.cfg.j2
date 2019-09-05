@@ -1,0 +1,63 @@
+#version=RHEL8
+ignoredisk --only-use=vda
+autopart --type=lvm
+# Partition clearing information
+clearpart --none --initlabel
+# Use graphical install
+graphical
+repo --name="AppStream" --baseurl=file:///run/install/repo/AppStream
+# Use CDROM installation media
+cdrom
+# Keyboard layouts
+keyboard --vckeymap=us --xlayouts='us'
+# System language
+lang en_US.UTF-8
+
+# Users
+user --name={{ admin_user }} --password={{ admin_user_pass }} --plaintext
+
+sshkey --username={{ admin_user }} "{{ admin_user_sshkey }}"
+
+
+# Network information
+network  --bootproto=static --ip={{ item.value.public_ipaddr }} --netmask={{ public_netmask }} --gateway={{ public_gateway }} --device={{ item.value.public_netdev | default('ens3') }} --nameserver={{ public_dns }} --ipv6=auto --activate
+{% if item.value.cluster_ipaddr is defined %}
+network  --bootproto=static --ip={{ item.value.cluster_ipaddr }} --netmask={{ cluster_netmask }} --device={{ item.value.cluster_netdev | default('ens4') }} --ipv6=auto --activate
+{% endif %}
+network  --hostname={{ item.key }}.{{ domain_name }}
+# Root password
+rootpw --iscrypted $6$RpQczvEpSDT8PZXS$dXB71U25YqH6bsbo6j.P8cAJaLEDy/dBMvPOpsag6e0/4xRJw9KOpUcVJ1FAnqTo5NzqEIr/QQmNp.MhzZlud1
+# Run the Setup Agent on first boot
+firstboot --enable
+# Do not configure the X Window System
+skipx
+# System services
+services --enabled="chronyd"
+# Intended system purpose
+syspurpose --role="Red Hat Enterprise Linux Server" --sla="Self-Support" --usage="Development/Test"
+# System timezone
+timezone America/New_York --isUtc
+
+%packages
+@^minimal-environment
+@guest-agents
+kexec-tools
+
+%end
+
+%post
+echo "{{ admin_user }} ALL = (root) NOPASSWD:ALL" > /etc/sudoers.d/{{ admin_user }}
+
+%end
+
+%addon com_redhat_kdump --enable --reserve-mb='auto'
+
+%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end
+
+reboot

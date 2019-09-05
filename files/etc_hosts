@@ -1,0 +1,9 @@
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+
+192.168.50.5  ceph-ansible.example.com ceph-ansible
+192.168.50.10 ceph-mon01.example.com ceph-mon01
+192.168.50.11 ceph-osd01.example.com ceph-osd01
+192.168.50.12 ceph-osd02.example.com ceph-osd02
+192.168.50.13 ceph-osd03.example.com ceph-osd03
+

@@ -1,0 +1,11 @@
+<network>
+  <name>{{ public_net }}</name>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='{{ public_bridge_name }}' stp='on' delay='0'/>
+  <ip address='{{ public_bridge_ip_addr }}' netmask='{{ public_netmask }}'/>
+</network>
+
